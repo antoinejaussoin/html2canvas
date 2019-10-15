@@ -11,7 +11,7 @@ import {ForeignObjectRenderer} from './render/canvas/foreignobject-renderer';
 export type Options = CloneOptions &
     RenderOptions &
     ResourceOptions & {
-        backgroundColor: string;
+        backgroundColor: string | null;
         foreignObjectRendering: boolean;
         logging: boolean;
         removeContainer?: boolean;
@@ -76,7 +76,7 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
 
     const windowBounds = new Bounds(options.scrollX, options.scrollY, options.windowWidth, options.windowHeight);
 
-    Logger.create(instanceName);
+    Logger.create({id: instanceName, enabled: options.logging});
     Logger.getInstance(instanceName).debug(`Starting document clone`);
     const documentCloner = new DocumentCloner(element, {
         id: instanceName,
@@ -101,7 +101,8 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
         : COLORS.TRANSPARENT;
 
     const bgColor = opts.backgroundColor;
-    const defaultBackgroundColor = typeof bgColor === 'string' ? parseColor(bgColor) : 0xffffffff;
+    const defaultBackgroundColor =
+        typeof bgColor === 'string' ? parseColor(bgColor) : bgColor === null ? COLORS.TRANSPARENT : 0xffffffff;
 
     const backgroundColor =
         element === ownerDocument.documentElement
@@ -115,6 +116,7 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
     const renderOptions = {
         id: instanceName,
         cache: options.cache,
+        canvas: options.canvas,
         backgroundColor,
         scale: options.scale,
         x: options.x,
@@ -152,7 +154,7 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
     }
 
     if (options.removeContainer === true) {
-        if (!cleanContainer(container)) {
+        if (!DocumentCloner.destroy(container)) {
             Logger.getInstance(instanceName).error(`Cannot detach cloned iframe as it is not in the DOM anymore`);
         }
     }
@@ -161,12 +163,4 @@ const renderElement = async (element: HTMLElement, opts: Partial<Options>): Prom
     Logger.destroy(instanceName);
     CacheStorage.destroy(instanceName);
     return canvas;
-};
-
-const cleanContainer = (container: HTMLIFrameElement): boolean => {
-    if (container.parentNode) {
-        container.parentNode.removeChild(container);
-        return true;
-    }
-    return false;
 };
